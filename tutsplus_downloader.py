@@ -4,6 +4,7 @@ import time
 import dotenv
 import urllib2
 from dotenv import load_dotenv
+from multiprocessing import Pool
 from os.path import join, dirname
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -30,7 +31,6 @@ browser.find_element_by_id('session_login').send_keys(username)
 browser.find_element_by_id('session_password').send_keys(password)
 browser.find_element_by_class_name('sign-in__button').send_keys(Keys.RETURN)
 
-
 # Get the data for each individual lesson
 print('=> Fetching the lesson data...')
 browser.get(course_url)
@@ -46,19 +46,17 @@ lesson_numbers = [number.get_attribute('innerHTML') for number in lesson_numbers
 
 
 # Create the course directory save to storage path variable
-print('=> Creating the storage directory...')
 course_title = browser.find_element_by_class_name('content-header__title')
 course_title = course_title.get_attribute('innerHTML') + '/'
 
 storage_path = storage_path if storage_path[-1] == '/' else storage_path + '/'
 storage_path += course_title + '/'
 
-if not os.path.exists(storage_path):
-    os.makedirs(storage_path)
-
-
 # Loop over each lesson and save each video
 print('=> Retrieving the individual lesson urls...')
+
+lessons = []
+
 for url in lesson_links:
     video_title = lesson_numbers[count] + ' ' + lesson_titles[count]
 
@@ -70,13 +68,25 @@ for url in lesson_links:
     video_url = browser.find_element_by_tag_name('source').get_attribute('src')
     file_name = storage_path + video_title + '.mp4'
 
-    response = urllib2.urlopen(video_url)
+    lessons.append({'url': video_url, 'file_name': file_name})
 
-    with open(file_name, 'wb') as file:
+browser.close()
+
+print('=> Creating the storage directory...')
+if not os.path.exists(storage_path):
+    os.makedirs(storage_path)
+
+print "=> Downloading videos..."
+def download_lesson(lesson):
+    response = urllib2.urlopen(lesson['url'])
+    with open(lesson['file_name'], 'wb') as file:
         file.write(response.read())
+
+pool = Pool(processes=4)
+pool.map(download_lesson, lessons)
 
 print "=> Succesfully downloaded %d videos." % count
 
-browser.close()
+
 
 
