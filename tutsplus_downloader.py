@@ -59,7 +59,7 @@ lessons = []
 
 for url in lesson_links:
     video_title = lesson_numbers[count] + ' ' + lesson_titles[count]
-
+    video_title = video_title.replace('/', '-')
     count += 1
 
     browser.get(url)
